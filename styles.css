@@ -429,48 +429,6 @@ img {
   color: var(--bone-50);
 }
 
-.edit-banner {
-  margin-top: 18px;
-  padding: 12px 14px;
-  border: 1px dashed rgba(244, 239, 230, 0.25);
-  border-radius: 2px;
-  background: var(--bone-08);
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--bone-80);
-}
-.edit-banner strong {
-  color: var(--bone);
-  font-weight: 700;
-}
-.edit-banner-actions {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.link-btn {
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--red);
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-.link-btn:hover {
-  color: var(--bone);
-}
-.hidden-count {
-  font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--bone-50);
-}
-
 .card-list {
   list-style: none;
   padding: 8px 0 24px;
@@ -508,9 +466,6 @@ img {
   bottom: 0;
   width: 3px;
   background: var(--red);
-}
-.card.is-hidden {
-  opacity: 0.45;
 }
 
 .card-thumb {
@@ -575,39 +530,6 @@ img {
   text-transform: uppercase;
   color: var(--bone-50);
   line-height: 1.5;
-}
-
-.card-actions {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  display: flex;
-  gap: 6px;
-  opacity: 0;
-  transition: opacity 0.18s;
-}
-.card:hover .card-actions,
-.card:focus-within .card-actions,
-.app.is-editing .card-actions {
-  opacity: 1;
-}
-.icon-btn {
-  background: rgba(26, 23, 20, 0.7);
-  border: 1px solid var(--bone-20);
-  color: var(--bone-80);
-  font-family: var(--f-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 5px 8px;
-  border-radius: 2px;
-  transition: background 0.18s, color 0.18s, border-color 0.18s;
-}
-.icon-btn:hover {
-  background: var(--red);
-  color: var(--bone);
-  border-color: var(--red);
 }
 
 .panel-empty {
@@ -689,11 +611,6 @@ img {
     box-shadow: 0 0 0 0 rgba(245, 184, 0, 0);
   }
 }
-.pin.is-hidden {
-  opacity: 0.35;
-  filter: grayscale(0.6);
-}
-
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
   background: var(--ink);
@@ -1118,15 +1035,14 @@ img {
 
 .create-fineprint {
   font-family: var(--f-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.02em;
   color: var(--ink-45);
   line-height: 1.7;
   margin-top: 4px;
 }
 
-/* ── Success step ─────────────────────────────────────────────── */
+/* ── Result step ──────────────────────────────────────────────── */
 .brief-preview {
   display: flex;
   flex-direction: column;
@@ -1134,7 +1050,7 @@ img {
   margin-bottom: 24px;
 }
 
-#brief-output {
+#result-output {
   font-family: var(--f-mono);
   font-size: 12px;
   line-height: 1.55;
@@ -1145,52 +1061,70 @@ img {
   padding: 14px 16px;
   width: 100%;
   resize: vertical;
-  min-height: 240px;
+  min-height: 280px;
   white-space: pre;
-  /* Wrap long URLs but keep the formatted layout for everything else. */
   overflow-wrap: break-word;
   word-break: break-word;
 }
-#brief-output:focus {
+#result-output:focus {
   outline: none;
   border-color: var(--red);
   box-shadow: 0 0 0 2px rgba(200, 56, 40, 0.18);
 }
+#result-output[data-kind='success'] {
+  border-color: rgba(31, 122, 58, 0.5);
+}
+#result-output[data-kind='error'] {
+  border-color: rgba(168, 46, 32, 0.5);
+}
 
-.copy-status {
+.result-meta {
+  border: 1px solid var(--ink-15);
+  border-radius: 2px;
+  background: rgba(26, 23, 20, 0.04);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.result-facts {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 4px 14px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin: 0;
+}
+.result-facts dt {
   font-family: var(--f-mono);
   font-size: 10px;
+  font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  line-height: 1.5;
-  min-height: 14px;
   color: var(--ink-45);
+  padding-top: 2px;
 }
-.copy-status[data-kind='ok'] {
-  color: #1f7a3a;
+.result-facts dd {
+  margin: 0;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  word-break: break-word;
 }
-.copy-status[data-kind='ok']::before {
-  content: '\2713  ';
-  font-weight: 700;
-}
-.copy-status[data-kind='warn'] {
-  color: var(--red-deep);
-}
-.copy-status[data-kind='warn']::before {
-  content: '!  ';
-  font-weight: 700;
+.result-facts code {
+  font-size: inherit;
+  background: transparent;
+  padding: 0;
 }
 
-/* Secondary CTA in the success step — same shape as detail-cta but
-   with a darker fill so it reads as the "open Mobilize" action and
-   the red Copy button is the primary visual anchor. */
-.detail-cta-alt {
-  background: var(--ink);
-  color: var(--bone);
+.create-fineprint code,
+.create-lede code {
+  font-family: var(--f-mono);
+  font-size: 0.92em;
+  background: rgba(26, 23, 20, 0.06);
+  padding: 1px 5px;
+  border-radius: 2px;
 }
-.detail-cta-alt:hover {
-  background: #2a2218;
-  color: var(--bone);
+.create-fineprint strong {
+  color: var(--ink);
 }
 
 @media (max-width: 640px) {
