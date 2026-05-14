@@ -14,10 +14,6 @@ const INITIAL_ZOOM = 5;
 
 const FLAGSHIP_CITY = 'Montgomery';
 
-const CREATE_EVENT_URL =
-  'https://www.mobilize.us/blackvotersmatter/c/all-roads-lead-to-the-south/event/create/?event_creation_source=discovery_page_no_commit';
-
-const HIDDEN_KEY = 'allroads:hidden-events:v1';
 const DRAFT_KEY = 'allroads:create-draft:v1';
 
 const API_URL =
@@ -28,8 +24,6 @@ const API_URL =
 const state = {
   events: [],
   markers: new Map(),
-  isEditing: false,
-  hidden: loadHidden(),
 };
 
 /* ── DOM refs ──────────────────────────────────────────────────── */
@@ -39,10 +33,6 @@ const els = {
   panelMeta: document.getElementById('panel-meta'),
   panelEmpty: document.getElementById('panel-empty'),
   hostCta: document.getElementById('host-cta'),
-  editToggle: document.getElementById('edit-toggle'),
-  editBanner: document.getElementById('edit-banner'),
-  restoreAll: document.getElementById('restore-all'),
-  hiddenCount: document.getElementById('hidden-count'),
   detailOverlay: document.getElementById('detail-overlay'),
   detail: document.getElementById('detail'),
   detailBody: document.getElementById('detail-body'),
@@ -84,8 +74,6 @@ L.tileLayer(
 ).addTo(map);
 
 els.hostCta.addEventListener('click', openCreate);
-els.editToggle.addEventListener('click', toggleEditMode);
-els.restoreAll.addEventListener('click', restoreAllHidden);
 els.detailClose.addEventListener('click', closeDetail);
 els.detailOverlay.addEventListener('click', (e) => {
   if (e.target === els.detailOverlay) closeDetail();
@@ -207,12 +195,8 @@ function renderMarkers() {
   state.markers.clear();
 
   for (const ev of state.events) {
-    const isHidden = state.hidden.has(ev.id);
-    if (isHidden && !state.isEditing) continue;
-
     const cls = ['pin'];
     if (ev.flagship) cls.push('is-flagship');
-    if (isHidden) cls.push('is-hidden');
 
     const icon = L.divIcon({
       className: '',
@@ -243,17 +227,13 @@ function renderCards() {
   els.cardList.removeAttribute('aria-busy');
   els.cardList.innerHTML = '';
 
-  const visible = state.events.filter(
-    (ev) => state.isEditing || !state.hidden.has(ev.id),
-  );
-
-  if (visible.length === 0) {
+  if (state.events.length === 0) {
     els.panelEmpty.hidden = false;
     return;
   }
   els.panelEmpty.hidden = true;
 
-  for (const ev of visible) {
+  for (const ev of state.events) {
     els.cardList.appendChild(buildCard(ev));
   }
 }
@@ -265,7 +245,6 @@ function buildCard(ev) {
   card.type = 'button';
   card.className = 'card';
   if (ev.flagship) card.classList.add('is-flagship');
-  if (state.hidden.has(ev.id)) card.classList.add('is-hidden');
   card.addEventListener('click', () => openDetail(ev));
   card.addEventListener('mouseenter', () => focusMarker(ev));
 
@@ -307,46 +286,17 @@ function buildCard(ev) {
   body.append(eyebrow, title, meta);
   card.append(thumb, body);
 
-  // Hide / Restore action
-  const actions = document.createElement('div');
-  actions.className = 'card-actions';
-  const hideBtn = document.createElement('button');
-  hideBtn.type = 'button';
-  hideBtn.className = 'icon-btn';
-  hideBtn.textContent = state.hidden.has(ev.id) ? 'Restore' : 'Hide';
-  hideBtn.setAttribute(
-    'aria-label',
-    `${state.hidden.has(ev.id) ? 'Restore' : 'Hide'} ${ev.title}`,
-  );
-  hideBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleHidden(ev);
-  });
-  actions.appendChild(hideBtn);
-  card.appendChild(actions);
-
   li.appendChild(card);
   return li;
 }
 
 function renderMeta() {
   const total = state.events.length;
-  const hidden = countHiddenInData();
-  const visible = total - (state.isEditing ? 0 : hidden);
-
   if (total === 0) {
     els.panelMeta.textContent = 'No upcoming events yet — check back soon.';
-  } else if (state.isEditing) {
-    els.panelMeta.textContent = `${total} total · ${hidden} hidden on this device`;
   } else {
-    els.panelMeta.textContent = `${visible} event${visible === 1 ? '' : 's'} · May 16, 2026`;
+    els.panelMeta.textContent = `${total} event${total === 1 ? '' : 's'} · May 16, 2026`;
   }
-
-  els.hiddenCount.textContent = hidden
-    ? `${hidden} hidden`
-    : 'Nothing hidden';
-  els.restoreAll.disabled = hidden === 0;
-  els.restoreAll.style.opacity = hidden === 0 ? '0.4' : '1';
 }
 
 function renderSkeletons() {
@@ -367,19 +317,16 @@ function renderSkeletons() {
 }
 
 function fitMapToVisible() {
-  const visiblePoints = state.events
-    .filter((ev) => state.isEditing || !state.hidden.has(ev.id))
-    .map((ev) => [ev.lat, ev.lng]);
-
-  if (visiblePoints.length === 0) {
+  const points = state.events.map((ev) => [ev.lat, ev.lng]);
+  if (points.length === 0) {
     map.setView(SOUTH_CENTER, INITIAL_ZOOM);
     return;
   }
-  if (visiblePoints.length === 1) {
-    map.setView(visiblePoints[0], 7);
+  if (points.length === 1) {
+    map.setView(points[0], 7);
     return;
   }
-  map.fitBounds(visiblePoints, { padding: [40, 40], maxZoom: 7 });
+  map.fitBounds(points, { padding: [40, 40], maxZoom: 7 });
 }
 
 function focusMarker(ev) {
@@ -424,8 +371,6 @@ function openDetail(ev) {
         .join('')
     : '<p>Details on Mobilize.</p>';
 
-  const isHidden = state.hidden.has(ev.id);
-
   els.detailBody.innerHTML = `
     <div class="detail-hero" ${heroBg}>${heroFallback}</div>
     <div class="detail-content">
@@ -443,19 +388,11 @@ function openDetail(ev) {
             </a>`
           : ''
       }
-      <button type="button" class="detail-secondary" id="detail-hide">
-        ${isHidden ? 'Restore on my map' : 'Hide from my map'}
-      </button>
     </div>
   `;
 
   els.detailOverlay.hidden = false;
   els.detail.focus();
-
-  document.getElementById('detail-hide').addEventListener('click', () => {
-    toggleHidden(ev);
-    closeDetail();
-  });
 }
 
 function closeDetail() {
@@ -774,54 +711,6 @@ function cssEscape(s) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   HIDE / EDIT
-   ══════════════════════════════════════════════════════════════════ */
-function toggleHidden(ev) {
-  if (state.hidden.has(ev.id)) state.hidden.delete(ev.id);
-  else state.hidden.add(ev.id);
-  saveHidden();
-  renderAll();
-}
-
-function restoreAllHidden() {
-  if (state.hidden.size === 0) return;
-  state.hidden.clear();
-  saveHidden();
-  renderAll();
-}
-
-function toggleEditMode() {
-  state.isEditing = !state.isEditing;
-  els.editToggle.setAttribute('aria-pressed', String(state.isEditing));
-  els.editBanner.hidden = !state.isEditing;
-  els.app.classList.toggle('is-editing', state.isEditing);
-  renderAll();
-}
-
-function loadHidden() {
-  try {
-    const raw = localStorage.getItem(HIDDEN_KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set();
-  }
-}
-function saveHidden() {
-  try {
-    localStorage.setItem(HIDDEN_KEY, JSON.stringify([...state.hidden]));
-  } catch {
-    /* storage may be disabled — fail quietly */
-  }
-}
-function countHiddenInData() {
-  let n = 0;
-  for (const ev of state.events) if (state.hidden.has(ev.id)) n++;
-  return n;
-}
-
-/* ══════════════════════════════════════════════════════════════════
    ERRORS
    ══════════════════════════════════════════════════════════════════ */
 function handleLoadError(err) {
@@ -830,10 +719,10 @@ function handleLoadError(err) {
   els.cardList.removeAttribute('aria-busy');
   els.panelEmpty.hidden = false;
   els.panelEmpty.innerHTML = `
-    <p>Couldn't reach the Mobilize API.</p>
+    <p>Couldn&rsquo;t reach the Mobilize API.</p>
     <p style="margin-top:8px">
       Check your connection or
-      <a href="https://www.mobilize.us/blackvotersmatter/" target="_blank" rel="noopener" style="color:var(--red)">view events directly on Mobilize →</a>
+      <a href="https://www.mobilize.us/blackvotersmatter/" target="_blank" rel="noopener" style="color:var(--red)">view events directly on Mobilize &rarr;</a>
     </p>`;
   els.panelMeta.textContent = 'Connection error';
 }

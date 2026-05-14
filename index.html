@@ -24,7 +24,7 @@
       crossorigin=""
     />
 
-    <link rel="stylesheet" href="./styles.css?v=5" />
+    <link rel="stylesheet" href="./styles.css?v=6" />
   </head>
   <body>
     <header class="site-nav">
@@ -69,18 +69,6 @@
               />
             </svg>
           </button>
-          <button id="edit-toggle" class="hero-cta-outline" type="button" aria-pressed="false">
-            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-              <path
-                d="M1.5 8.5L8 2l2 2L3.5 10.5H1.5v-2z"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.2"
-                stroke-linejoin="miter"
-              />
-            </svg>
-            Edit my map
-          </button>
         </div>
       </div>
 
@@ -96,23 +84,12 @@
           <p class="panel-eyebrow">Satellite Events</p>
           <h2 class="panel-title">Find an event near you</h2>
           <p class="panel-meta" id="panel-meta">Loading events…</p>
-
-          <div id="edit-banner" class="edit-banner" hidden>
-            <p>
-              <strong>Edit mode.</strong> Hide events you don&rsquo;t want on your map,
-              or restore ones you&rsquo;ve hidden. Changes stay on this device.
-            </p>
-            <div class="edit-banner-actions">
-              <button type="button" id="restore-all" class="link-btn">Restore all</button>
-              <span id="hidden-count" class="hidden-count" aria-live="polite"></span>
-            </div>
-          </div>
         </div>
 
         <ul class="card-list" id="card-list" aria-busy="true"></ul>
 
         <div class="panel-empty" id="panel-empty" hidden>
-          <p>No events match. Try restoring hidden events or check back soon.</p>
+          <p>No upcoming events yet — check back soon.</p>
         </div>
       </aside>
 
@@ -536,6 +513,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=5" defer></script>
+    <script src="./app.js?v=6" defer></script>
   </body>
 </html>
