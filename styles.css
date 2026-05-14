@@ -1126,6 +1126,73 @@ img {
   margin-top: 4px;
 }
 
+/* ── Success step ─────────────────────────────────────────────── */
+.brief-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+#brief-output {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--ink-15);
+  border-radius: 2px;
+  padding: 14px 16px;
+  width: 100%;
+  resize: vertical;
+  min-height: 240px;
+  white-space: pre;
+  /* Wrap long URLs but keep the formatted layout for everything else. */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+#brief-output:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(200, 56, 40, 0.18);
+}
+
+.copy-status {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  min-height: 14px;
+  color: var(--ink-45);
+}
+.copy-status[data-kind='ok'] {
+  color: #1f7a3a;
+}
+.copy-status[data-kind='ok']::before {
+  content: '\2713  ';
+  font-weight: 700;
+}
+.copy-status[data-kind='warn'] {
+  color: var(--red-deep);
+}
+.copy-status[data-kind='warn']::before {
+  content: '!  ';
+  font-weight: 700;
+}
+
+/* Secondary CTA in the success step — same shape as detail-cta but
+   with a darker fill so it reads as the "open Mobilize" action and
+   the red Copy button is the primary visual anchor. */
+.detail-cta-alt {
+  background: var(--ink);
+  color: var(--bone);
+}
+.detail-cta-alt:hover {
+  background: #2a2218;
+  color: var(--bone);
+}
+
 @media (max-width: 640px) {
   .create-content {
     padding: 24px 20px 32px;
@@ -1143,35 +1210,6 @@ img {
     width: 100%;
     justify-content: center;
   }
-}
-
-/* ══════════════════════════════
-   TOAST
-   ══════════════════════════════ */
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 28px;
-  transform: translateX(-50%) translateY(20px);
-  z-index: 2500;
-  background: var(--ink);
-  color: var(--bone);
-  border: 1px solid var(--bone-20);
-  font-family: var(--f-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 12px 18px;
-  border-radius: 2px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transition: opacity 0.2s var(--ease), transform 0.25s var(--ease);
-  max-width: calc(100% - 32px);
-  text-align: center;
-}
-.toast.is-visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
 }
 
 /* ══════════════════════════════
