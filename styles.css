@@ -44,6 +44,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+/* Lock background scroll while the detail modal is open so iOS Safari
+   doesn't bleed map drag interactions through the overlay. */
+body.is-modal-open {
+  overflow: hidden;
+}
 
 a {
   color: inherit;
@@ -725,8 +730,11 @@ img {
   position: fixed;
   inset: 0;
   background: rgba(10, 9, 8, 0.78);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
-  z-index: 200;
+  /* Sit above any Leaflet pane (controls top out around z-index: 1000,
+     popups at 700) so map markers/popups can't punch through. */
+  z-index: 2000;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
@@ -748,9 +756,15 @@ img {
 
 .detail {
   width: min(560px, 100%);
+  /* iOS Safari doesn't reliably stretch flex children that also have
+     overflow: auto. Anchor the panel to the full overlay box so the map
+     beneath can't show through above/below the content. */
+  height: 100%;
+  align-self: stretch;
   background: var(--bone);
   color: var(--ink);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   position: relative;
   animation: detailSlide 0.32s var(--ease);
   outline: none;

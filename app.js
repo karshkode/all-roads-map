@@ -353,6 +353,11 @@ function focusMarker(ev) {
    DETAIL VIEW
    ══════════════════════════════════════════════════════════════════ */
 function openDetail(ev) {
+  // Close any open Leaflet popup so it can't peek through the modal
+  // (popups live in a Leaflet pane at z-index ~700, but this also
+  // prevents a stray popup from staying open behind the overlay).
+  map.closePopup();
+
   const where = [ev.city, ev.region].filter(Boolean).join(', ');
   const address = ev.addressLines.filter(Boolean).join(', ');
 
@@ -411,6 +416,8 @@ function openDetail(ev) {
   `;
 
   els.detailOverlay.hidden = false;
+  document.body.classList.add('is-modal-open');
+  els.detail.scrollTop = 0;
   els.detail.focus();
 
   document.getElementById('detail-hide').addEventListener('click', () => {
@@ -422,6 +429,7 @@ function openDetail(ev) {
 function closeDetail() {
   els.detailOverlay.hidden = true;
   els.detailBody.innerHTML = '';
+  document.body.classList.remove('is-modal-open');
 }
 
 /* ══════════════════════════════════════════════════════════════════
