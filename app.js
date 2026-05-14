@@ -166,8 +166,11 @@ function normalize(raw) {
   ts.sort((a, b) => (a.start_date || 0) - (b.start_date || 0));
   const next = ts[0] || null;
 
+  // Flagship status is location-based, not derived from Mobilize's
+  // high_priority flag — the vetting team marks lots of events as
+  // high-priority to help them surface, but only the Montgomery rally
+  // is the flagship of the National Day of Action.
   const flagship =
-    !!raw.high_priority ||
     /montgomery/i.test(city) ||
     (raw.title || '').toLowerCase().includes(FLAGSHIP_CITY.toLowerCase());
 
