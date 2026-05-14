@@ -18,6 +18,7 @@ const CREATE_EVENT_URL =
   'https://www.mobilize.us/blackvotersmatter/c/all-roads-lead-to-the-south/event/create/?event_creation_source=discovery_page_no_commit';
 
 const HIDDEN_KEY = 'allroads:hidden-events:v1';
+const DRAFT_KEY = 'allroads:create-draft:v1';
 
 const API_URL =
   `https://api.mobilize.us/v1/organizations/${ORG_ID}/events` +
@@ -46,13 +47,19 @@ const els = {
   detail: document.getElementById('detail'),
   detailBody: document.getElementById('detail-body'),
   detailClose: document.getElementById('detail-close'),
+  createOverlay: document.getElementById('create-overlay'),
+  createPanel: document.getElementById('create-panel'),
+  createClose: document.getElementById('create-close'),
+  createCancel: document.getElementById('create-cancel'),
+  createForm: document.getElementById('create-form'),
+  createError: document.getElementById('create-error'),
+  createVirtual: document.getElementById('create-virtual'),
+  toast: document.getElementById('toast'),
 };
 
 /* ══════════════════════════════════════════════════════════════════
    BOOT
    ══════════════════════════════════════════════════════════════════ */
-els.hostCta.href = CREATE_EVENT_URL;
-
 const map = L.map('map', {
   zoomControl: true,
   scrollWheelZoom: true,
@@ -69,15 +76,29 @@ L.tileLayer(
   },
 ).addTo(map);
 
+els.hostCta.addEventListener('click', openCreate);
 els.editToggle.addEventListener('click', toggleEditMode);
 els.restoreAll.addEventListener('click', restoreAllHidden);
 els.detailClose.addEventListener('click', closeDetail);
 els.detailOverlay.addEventListener('click', (e) => {
   if (e.target === els.detailOverlay) closeDetail();
 });
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !els.detailOverlay.hidden) closeDetail();
+els.createClose.addEventListener('click', closeCreate);
+els.createCancel.addEventListener('click', closeCreate);
+els.createOverlay.addEventListener('click', (e) => {
+  if (e.target === els.createOverlay) closeCreate();
 });
+els.createVirtual.addEventListener('change', syncVirtualState);
+els.createForm.addEventListener('submit', handleCreateSubmit);
+els.createForm.addEventListener('input', persistDraftSoon);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!els.createOverlay.hidden) closeCreate();
+  else if (!els.detailOverlay.hidden) closeDetail();
+});
+
+restoreDraft();
 
 renderSkeletons();
 loadEvents().catch(handleLoadError);
@@ -422,6 +443,235 @@ function openDetail(ev) {
 function closeDetail() {
   els.detailOverlay.hidden = true;
   els.detailBody.innerHTML = '';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CREATE-EVENT FORM
+   In-page form modeled on the public Mobilize event-creation form.
+   We don't have a creation API key, so on submit we package the
+   inputs into a formatted brief, copy it to the clipboard, and open
+   Mobilize in a new tab so the host can paste-and-publish.
+   ══════════════════════════════════════════════════════════════════ */
+function openCreate() {
+  els.createOverlay.hidden = false;
+  syncVirtualState();
+  hideCreateError();
+  // Defer focus so the slide-in animation can paint first.
+  requestAnimationFrame(() => {
+    els.createPanel.focus({ preventScroll: false });
+    const firstInvalid = els.createForm.querySelector(
+      'input:not([value]), input[value=""], textarea:empty',
+    );
+    const firstField = firstInvalid || els.createForm.querySelector('input, select, textarea');
+    if (firstField) firstField.focus({ preventScroll: true });
+  });
+}
+
+function closeCreate() {
+  els.createOverlay.hidden = true;
+  hideCreateError();
+}
+
+function syncVirtualState() {
+  els.createForm.classList.toggle('is-virtual', els.createVirtual.checked);
+  // Toggle 'required' on physical-location fields so virtual events validate.
+  for (const el of els.createForm.querySelectorAll('[data-physical] [required]')) {
+    el.dataset.required = el.dataset.required || 'true';
+  }
+  for (const el of els.createForm.querySelectorAll('[data-physical] input, [data-physical] select')) {
+    if (el.dataset.required === 'true') {
+      el.required = !els.createVirtual.checked;
+    }
+  }
+}
+
+function handleCreateSubmit(e) {
+  e.preventDefault();
+  hideCreateError();
+  els.createForm.classList.add('was-submitted');
+
+  const data = readForm();
+  const errors = validateCreate(data);
+  if (errors.length) {
+    showCreateError(errors[0]);
+    const firstBad = els.createForm.querySelector(`[name="${cssEscape(errors[0].field)}"]`);
+    if (firstBad) firstBad.focus({ preventScroll: false });
+    return;
+  }
+
+  const brief = formatBrief(data);
+
+  copyToClipboard(brief)
+    .then(() => {
+      showToast('Brief copied — paste it into Mobilize');
+    })
+    .catch(() => {
+      showToast('Opening Mobilize — copy the brief from the next screen');
+    })
+    .finally(() => {
+      window.open(CREATE_EVENT_URL, '_blank', 'noopener');
+      closeCreate();
+    });
+}
+
+function readForm() {
+  const fd = new FormData(els.createForm);
+  const obj = {};
+  for (const [k, v] of fd.entries()) obj[k] = typeof v === 'string' ? v.trim() : v;
+  obj.isVirtual = els.createVirtual.checked;
+  return obj;
+}
+
+function validateCreate(d) {
+  const errs = [];
+  const need = (field, label) => {
+    if (!d[field]) errs.push({ field, message: `${label} is required.` });
+  };
+  need('title', 'Event name');
+  need('eventType', 'Event type');
+  need('description', 'Description');
+  need('date', 'Date');
+  need('startTime', 'Start time');
+  need('endTime', 'End time');
+  need('hostName', 'Host name');
+  need('hostEmail', 'Host email');
+  if (d.hostEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.hostEmail)) {
+    errs.push({ field: 'hostEmail', message: 'Host email looks invalid.' });
+  }
+  if (!d.isVirtual) {
+    need('city', 'City');
+    need('region', 'State');
+  }
+  if (d.startTime && d.endTime && d.endTime <= d.startTime) {
+    errs.push({ field: 'endTime', message: 'End time must be after start time.' });
+  }
+  return errs;
+}
+
+function formatBrief(d) {
+  const lines = [];
+  lines.push(`EVENT: ${d.title}`);
+  lines.push(`TYPE: ${humanType(d.eventType, d.isVirtual) || d.eventType}`);
+  lines.push('');
+  lines.push(`WHEN: ${formatBriefWhen(d)}`);
+  if (d.isVirtual) {
+    lines.push('WHERE: Virtual');
+  } else {
+    const where = [d.venue, d.address, [d.city, d.region].filter(Boolean).join(', '), d.postal]
+      .filter(Boolean)
+      .join(' · ');
+    lines.push(`WHERE: ${where || 'TBA'}`);
+  }
+  if (d.accessibility || d.accessibilityNotes) {
+    const a = humanAccess(d.accessibility, d.accessibilityNotes);
+    if (a) lines.push(`ACCESS: ${a}`);
+  }
+  if (d.image) lines.push(`IMAGE: ${d.image}`);
+  lines.push('');
+  lines.push('DESCRIPTION:');
+  lines.push(d.description);
+  lines.push('');
+  lines.push('HOST:');
+  lines.push(`  Name:  ${d.hostName}`);
+  lines.push(`  Email: ${d.hostEmail}`);
+  if (d.hostPhone) lines.push(`  Phone: ${d.hostPhone}`);
+  if (d.hostOrg) lines.push(`  Org:   ${d.hostOrg}`);
+  lines.push('');
+  lines.push('TAG: All Roads Lead to the South');
+  return lines.join('\n');
+}
+
+function formatBriefWhen(d) {
+  if (!d.date || !d.startTime) return 'TBA';
+  const tz = d.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return `${d.date} · ${d.startTime}–${d.endTime || ''} ${tz}`.trim();
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Legacy fallback for older browsers.
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand copy failed'));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function showCreateError(err) {
+  els.createError.textContent = err.message || String(err);
+  els.createError.hidden = false;
+}
+function hideCreateError() {
+  els.createError.hidden = true;
+  els.createError.textContent = '';
+}
+
+let toastTimer = null;
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.hidden = false;
+  // Force reflow so the transition runs on the freshly-shown element.
+  void els.toast.offsetWidth;
+  els.toast.classList.add('is-visible');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    els.toast.classList.remove('is-visible');
+    setTimeout(() => {
+      els.toast.hidden = true;
+    }, 250);
+  }, 3200);
+}
+
+/* ── Draft persistence ─────────────────────────────────────────── */
+let draftTimer = null;
+function persistDraftSoon() {
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = setTimeout(persistDraft, 250);
+}
+function persistDraft() {
+  try {
+    const data = readForm();
+    // Don't persist if every field is empty — keeps storage clean.
+    const hasAny = Object.values(data).some((v) => v && v !== false);
+    if (hasAny) localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+    else localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* storage may be disabled — fail quietly */
+  }
+}
+function restoreDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    for (const [name, value] of Object.entries(data || {})) {
+      const field = els.createForm.elements.namedItem(name);
+      if (!field) continue;
+      if (field.type === 'checkbox') field.checked = !!value;
+      else field.value = value ?? '';
+    }
+    syncVirtualState();
+  } catch {
+    /* ignore corrupt drafts */
+  }
+}
+
+function cssEscape(s) {
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
 }
 
 /* ══════════════════════════════════════════════════════════════════
