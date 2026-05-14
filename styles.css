@@ -67,7 +67,8 @@ img {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  /* Above the map (which is now isolated) but below dialog overlays. */
+  z-index: 1500;
   padding: 20px clamp(24px, 5vw, 72px);
   display: flex;
   align-items: center;
@@ -389,6 +390,9 @@ img {
   max-height: 100vh;
   position: sticky;
   top: 0;
+  /* Sit above the map's stacking context so the panel always wins on the
+     edge between the two columns and on mobile single-column layout. */
+  z-index: 1;
 }
 
 .panel-head {
@@ -620,6 +624,11 @@ img {
   position: relative;
   background: #14110e;
   min-height: 100vh;
+  /* Contain Leaflet's internal z-indices (panes up to 700, controls up to
+     1000) so they can never punch through the side panel, the site nav,
+     or any of our overlays. */
+  isolation: isolate;
+  z-index: 0;
 }
 #map {
   position: absolute;
@@ -726,7 +735,8 @@ img {
   inset: 0;
   background: rgba(10, 9, 8, 0.78);
   backdrop-filter: blur(6px);
-  z-index: 200;
+  /* Has to clear Leaflet's control z-index (1000) AND the site nav (100). */
+  z-index: 2000;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
