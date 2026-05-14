@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>All Roads Lead to the South — Events Map</title>
+    <meta
+      name="description"
+      content="Live map of National Day of Action for Voting Rights events — May 16, 2026. All Roads Lead to the South."
+    />
+    <meta name="theme-color" content="#1A1714" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=JetBrains+Mono:wght@500&display=swap"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-nav">
+      <a class="nav-back" href="https://allroadsleadtothesouth.com" rel="noopener">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <path
+            d="M6.5 1.5L3 5l3.5 3.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="square"
+          />
+        </svg>
+        Back to allroadsleadtothesouth.com
+      </a>
+      <span class="nav-wordmark">All Roads · Events Map</span>
+    </header>
+
+    <section class="hero" aria-label="National Day of Action for Voting Rights">
+      <div class="hero-stripe" aria-hidden="true"></div>
+      <span class="hero-year" aria-hidden="true">The South · 2026</span>
+
+      <div class="hero-inner">
+        <p class="hero-event-name">National Day of Action for Voting Rights</p>
+        <p class="hero-date-badge">May 16, 2026</p>
+        <h1 class="hero-title">EVERY ROAD.<br />EVERY CITY.</h1>
+        <p class="hero-sub">
+          Find a rally near you. Or host one in your city. The march doesn&rsquo;t end
+          in Montgomery — it ends wherever you stand up.
+        </p>
+        <div class="hero-ctas">
+          <a id="host-cta" class="hero-cta" href="#" target="_blank" rel="noopener">
+            Host an event
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <path
+                d="M2 6h8M6 2l4 4-4 4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="square"
+              />
+            </svg>
+          </a>
+          <button id="edit-toggle" class="hero-cta-outline" type="button" aria-pressed="false">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <path
+                d="M1.5 8.5L8 2l2 2L3.5 10.5H1.5v-2z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linejoin="miter"
+              />
+            </svg>
+            Edit my map
+          </button>
+        </div>
+      </div>
+
+      <div class="hero-scroll" aria-hidden="true">
+        <span>Scroll</span>
+        <span class="hero-scroll-line"></span>
+      </div>
+    </section>
+
+    <main class="app" id="app">
+      <aside class="panel" aria-label="Events list">
+        <div class="panel-head">
+          <p class="panel-eyebrow">Satellite Events</p>
+          <h2 class="panel-title">Find an event near you</h2>
+          <p class="panel-meta" id="panel-meta">Loading events…</p>
+
+          <div id="edit-banner" class="edit-banner" hidden>
+            <p>
+              <strong>Edit mode.</strong> Hide events you don&rsquo;t want on your map,
+              or restore ones you&rsquo;ve hidden. Changes stay on this device.
+            </p>
+            <div class="edit-banner-actions">
+              <button type="button" id="restore-all" class="link-btn">Restore all</button>
+              <span id="hidden-count" class="hidden-count" aria-live="polite"></span>
+            </div>
+          </div>
+        </div>
+
+        <ul class="card-list" id="card-list" aria-busy="true"></ul>
+
+        <div class="panel-empty" id="panel-empty" hidden>
+          <p>No events match. Try restoring hidden events or check back soon.</p>
+        </div>
+      </aside>
+
+      <section class="map-wrap" aria-label="Map of events">
+        <div id="map" role="application" aria-label="Map of All Roads Lead to the South events"></div>
+      </section>
+    </main>
+
+    <div
+      class="detail-overlay"
+      id="detail-overlay"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detail-title"
+    >
+      <article class="detail" id="detail" tabindex="-1">
+        <button class="detail-close" id="detail-close" type="button" aria-label="Close detail">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+            <path
+              d="M2 2l10 10M12 2L2 12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="square"
+            />
+          </svg>
+        </button>
+        <div class="detail-body" id="detail-body"></div>
+      </article>
+    </div>
+
+    <footer class="site-foot">
+      <p>
+        Event data &middot;
+        <a href="https://www.mobilize.us/blackvotersmatter/" rel="noopener">Black Voters Matter on Mobilize</a>
+      </p>
+      <p>
+        Map tiles &middot;
+        <a href="https://carto.com/attributions" rel="noopener">CARTO</a> +
+        <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>
+      </p>
+    </footer>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="./app.js" defer></script>
+  </body>
+</html>
