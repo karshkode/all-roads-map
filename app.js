@@ -54,7 +54,14 @@ const els = {
   createForm: document.getElementById('create-form'),
   createError: document.getElementById('create-error'),
   createVirtual: document.getElementById('create-virtual'),
-  toast: document.getElementById('toast'),
+  createStepForm: document.getElementById('create-step-form'),
+  createStepSuccess: document.getElementById('create-step-success'),
+  briefOutput: document.getElementById('brief-output'),
+  briefCopy: document.getElementById('brief-copy'),
+  briefCopyLabel: document.getElementById('brief-copy-label'),
+  briefOpen: document.getElementById('brief-open'),
+  briefBack: document.getElementById('brief-back'),
+  copyStatus: document.getElementById('copy-status'),
 };
 
 /* ══════════════════════════════════════════════════════════════════
@@ -91,6 +98,17 @@ els.createOverlay.addEventListener('click', (e) => {
 els.createVirtual.addEventListener('change', syncVirtualState);
 els.createForm.addEventListener('submit', handleCreateSubmit);
 els.createForm.addEventListener('input', persistDraftSoon);
+els.briefCopy.addEventListener('click', handleBriefCopy);
+els.briefBack.addEventListener('click', showFormStep);
+els.briefOutput.addEventListener('focus', () => els.briefOutput.select());
+els.briefOutput.addEventListener('click', () => els.briefOutput.select());
+els.briefOpen.addEventListener('click', () => {
+  // Re-attempt the copy right before the user switches tabs so the
+  // brief is freshly on their clipboard when they reach Mobilize. This
+  // is a real user gesture so it's the most reliable moment.
+  const brief = els.briefOutput.value;
+  if (brief) copyBrief(brief).catch(() => {});
+});
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
@@ -454,6 +472,7 @@ function closeDetail() {
    ══════════════════════════════════════════════════════════════════ */
 function openCreate() {
   els.createOverlay.hidden = false;
+  showFormStep();
   syncVirtualState();
   hideCreateError();
   // Defer focus so the slide-in animation can paint first.
@@ -470,6 +489,26 @@ function openCreate() {
 function closeCreate() {
   els.createOverlay.hidden = true;
   hideCreateError();
+  // Reset to form step so the next open starts fresh from the top.
+  showFormStep();
+}
+
+function showFormStep() {
+  els.createStepForm.hidden = false;
+  els.createStepSuccess.hidden = true;
+  resetCopyStatus();
+}
+
+function showSuccessStep() {
+  els.createStepForm.hidden = true;
+  els.createStepSuccess.hidden = false;
+  // Scroll the side-sheet back to the top so the user sees the brief.
+  // scrollTo isn't always present (older browsers, embedded webviews).
+  if (typeof els.createPanel.scrollTo === 'function') {
+    els.createPanel.scrollTo({ top: 0, behavior: 'auto' });
+  } else {
+    els.createPanel.scrollTop = 0;
+  }
 }
 
 function syncVirtualState() {
@@ -500,18 +539,117 @@ function handleCreateSubmit(e) {
   }
 
   const brief = formatBrief(data);
+  els.briefOutput.value = brief;
 
-  copyToClipboard(brief)
+  // Try to copy to the clipboard while we still have the user gesture
+  // from the form submit. Whether this succeeds or not we hand off to
+  // the success step, where the user has explicit Copy and Open
+  // Mobilize buttons that don't depend on this initial attempt.
+  showSuccessStep();
+
+  copyBrief(brief)
+    .then(() => setCopyStatus('ok', 'Copied to your clipboard — paste into Mobilize'))
+    .catch(() =>
+      setCopyStatus(
+        'warn',
+        'Couldn\u2019t auto-copy in this browser. Click "Copy brief" below.',
+      ),
+    );
+
+  // Pre-select the brief textarea so a single Cmd/Ctrl+C also works.
+  requestAnimationFrame(() => {
+    els.briefOutput.focus({ preventScroll: false });
+    els.briefOutput.select();
+  });
+}
+
+function handleBriefCopy() {
+  const brief = els.briefOutput.value;
+  if (!brief) return;
+
+  copyBrief(brief)
     .then(() => {
-      showToast('Brief copied — paste it into Mobilize');
+      setCopyStatus('ok', 'Copied to your clipboard — paste into Mobilize');
+      flashCopyButton('Copied!');
     })
     .catch(() => {
-      showToast('Opening Mobilize — copy the brief from the next screen');
-    })
-    .finally(() => {
-      window.open(CREATE_EVENT_URL, '_blank', 'noopener');
-      closeCreate();
+      // Last resort: select the textarea and tell the user to press Cmd/Ctrl+C.
+      els.briefOutput.focus();
+      els.briefOutput.select();
+      setCopyStatus(
+        'warn',
+        'Your browser blocked the auto-copy. Press \u2318/Ctrl+C to copy the selected text.',
+      );
     });
+}
+
+/* Copy a string to the clipboard. Tries the legacy execCommand path
+   first because it's synchronous and doesn't require document focus,
+   then falls back to the async Clipboard API for browsers that have
+   removed execCommand. Both paths return a Promise so callers can
+   wire UI feedback the same way. */
+function copyBrief(text) {
+  return new Promise((resolve, reject) => {
+    if (legacyCopy(text)) {
+      resolve();
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(resolve, reject);
+      return;
+    }
+    reject(new Error('No clipboard mechanism available'));
+  });
+}
+
+function legacyCopy(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    // Position off-screen but still focusable. iOS needs a non-zero size.
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.width = '1px';
+    ta.style.height = '1px';
+    ta.style.opacity = '0';
+    ta.style.pointerEvents = 'none';
+    document.body.appendChild(ta);
+
+    const prevSelected = document.activeElement;
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand && document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (prevSelected && typeof prevSelected.focus === 'function') {
+      prevSelected.focus();
+    }
+    return !!ok;
+  } catch {
+    return false;
+  }
+}
+
+function setCopyStatus(kind, message) {
+  els.copyStatus.textContent = message;
+  els.copyStatus.dataset.kind = kind;
+}
+
+function resetCopyStatus() {
+  els.copyStatus.textContent = '';
+  delete els.copyStatus.dataset.kind;
+  els.briefCopyLabel.textContent = 'Copy brief';
+}
+
+let copyFlashTimer = null;
+function flashCopyButton(label) {
+  els.briefCopyLabel.textContent = label;
+  if (copyFlashTimer) clearTimeout(copyFlashTimer);
+  copyFlashTimer = setTimeout(() => {
+    els.briefCopyLabel.textContent = 'Copy brief';
+  }, 1800);
 }
 
 function readForm() {
@@ -587,29 +725,6 @@ function formatBriefWhen(d) {
   return `${d.date} · ${d.startTime}–${d.endTime || ''} ${tz}`.trim();
 }
 
-function copyToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    return navigator.clipboard.writeText(text);
-  }
-  // Legacy fallback for older browsers.
-  return new Promise((resolve, reject) => {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      ok ? resolve() : reject(new Error('execCommand copy failed'));
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
 function showCreateError(err) {
   els.createError.textContent = err.message || String(err);
   els.createError.hidden = false;
@@ -617,22 +732,6 @@ function showCreateError(err) {
 function hideCreateError() {
   els.createError.hidden = true;
   els.createError.textContent = '';
-}
-
-let toastTimer = null;
-function showToast(message) {
-  els.toast.textContent = message;
-  els.toast.hidden = false;
-  // Force reflow so the transition runs on the freshly-shown element.
-  void els.toast.offsetWidth;
-  els.toast.classList.add('is-visible');
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    els.toast.classList.remove('is-visible');
-    setTimeout(() => {
-      els.toast.hidden = true;
-    }, 250);
-  }, 3200);
 }
 
 /* ── Draft persistence ─────────────────────────────────────────── */
