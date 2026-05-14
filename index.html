@@ -24,7 +24,7 @@
       crossorigin=""
     />
 
-    <link rel="stylesheet" href="./styles.css?v=6" />
+    <link rel="stylesheet" href="./styles.css?v=7" />
   </head>
   <body>
     <header class="site-nav">
@@ -122,11 +122,13 @@
       </article>
     </div>
 
-    <!-- Create-event modal — modeled on the public Mobilize event-creation
-         form (https://www.mobilize.us/blackvotersmatter/c/all-roads-lead-to-
-         the-south/event/create/). Submission packages the inputs into a
-         formatted brief, copies it to the clipboard, and hands the user
-         off to Mobilize to finish posting the event. -->
+    <!-- Create-event modal — modeled on the Mobilize event-creation form.
+         Submitting POSTs to Mobilize's /v1/organizations/{org}/events
+         endpoint when MOBILIZE_API_KEY is configured in app.js. With no
+         key set (the default for this public demo) the modal switches to
+         a "demo mode" success step that shows the exact payload that
+         would be sent. Wire up a real key on a serverless proxy and the
+         live submission path takes over with no other changes. -->
     <div
       class="detail-overlay create-overlay"
       id="create-overlay"
@@ -152,10 +154,9 @@
           <p class="detail-eyebrow">Host an event</p>
           <h2 id="create-title">Plan your rally</h2>
           <p class="create-lede">
-            Fill in the basics here. When you submit, we&rsquo;ll prepare a
-            ready-to-paste brief and hand you off to Mobilize&rsquo;s event
-            creator to publish. Every field below mirrors what Mobilize asks
-            for.
+            Fill in the basics. Submitting posts the event to Mobilize via
+            their <code>/v1/events</code> endpoint. Every field below maps
+            directly to Mobilize&rsquo;s schema.
           </p>
 
           <form class="create-form" id="create-form" novalidate>
@@ -395,7 +396,7 @@
 
             <div class="create-actions">
               <button type="submit" class="detail-cta" id="create-submit">
-                Build my brief
+                <span id="create-submit-label">Submit to Mobilize</span>
                 <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
                   <path
                     d="M2 6h8M6 2l4 4-4 4"
@@ -412,85 +413,60 @@
             </div>
 
             <p class="create-fineprint">
-              Mobilize is the official platform for All Roads Lead to the South
-              events. Posting straight from this page would require an
-              organization-level Mobilize API key — we can&rsquo;t embed one in
-              a public site without leaking it, so the final publish step
-              happens on Mobilize. We auto-save your draft locally so you
-              won&rsquo;t lose what you typed.
+              <strong>Demo notice.</strong> This site doesn&rsquo;t have a
+              Mobilize API key configured, so submissions are stubbed — you
+              can preview the exact payload that would be POSTed to
+              <code>/v1/organizations/5766/events</code>. Drop a real key into
+              <code>MOBILIZE_API_KEY</code> in <code>app.js</code> (or wire
+              this form to a serverless proxy that holds the key) and the
+              live submission path takes over automatically. We auto-save
+              your draft locally so you won&rsquo;t lose what you typed.
             </p>
           </form>
         </div>
 
-        <!-- Success step — shown after a valid submission. The user gets the
-             full brief in a selectable textarea, with explicit Copy and Open
-             Mobilize buttons. Both actions run in their own click gesture so
-             the clipboard write and new-tab open never get blocked. -->
+        <!-- Result step — shown after a valid submission. In demo mode this
+             is a payload preview; in live mode it shows the API response. -->
         <div class="create-content create-success" id="create-step-success" hidden>
-          <p class="detail-eyebrow">Your brief is ready</p>
-          <h2 id="create-success-title">Two clicks to publish</h2>
-          <p class="create-lede">
-            Mobilize doesn&rsquo;t accept event submissions through their public
-            API, so the final step happens on their site. Copy the brief below,
-            open Mobilize&rsquo;s event creator, and paste your description and
-            details into the matching fields.
+          <p class="detail-eyebrow" id="result-eyebrow">Demo mode</p>
+          <h2 id="result-title">Stubbed submission</h2>
+          <p class="create-lede" id="result-lede">
+            No <code>MOBILIZE_API_KEY</code> configured. Below is the JSON
+            payload this form would POST to Mobilize&rsquo;s
+            <code>/v1/organizations/5766/events</code> endpoint with the
+            <code>Authorization: Bearer &lt;key&gt;</code> header.
           </p>
+
+          <div class="result-meta" id="result-meta" hidden>
+            <dl class="result-facts">
+              <dt>Endpoint</dt>
+              <dd id="result-endpoint"><code>POST /v1/organizations/5766/events</code></dd>
+              <dt>Status</dt>
+              <dd id="result-status">—</dd>
+            </dl>
+          </div>
 
           <div class="brief-preview">
             <label class="field field-full">
-              <span class="field-label">Your event brief</span>
+              <span class="field-label" id="result-payload-label">Request payload (stub)</span>
               <textarea
-                id="brief-output"
+                id="result-output"
                 readonly
-                rows="14"
+                rows="16"
                 spellcheck="false"
-                aria-label="Your event brief"
+                aria-label="Request payload"
               ></textarea>
             </label>
-            <p class="copy-status" id="copy-status" role="status" aria-live="polite"></p>
           </div>
 
           <div class="create-actions">
-            <button type="button" class="detail-cta" id="brief-copy">
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <path
-                  d="M3 3h6v6H3z M5 1h6v6"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linejoin="miter"
-                />
-              </svg>
-              <span id="brief-copy-label">Copy brief</span>
-            </button>
-            <a
-              class="detail-cta detail-cta-alt"
-              id="brief-open"
-              href="https://www.mobilize.us/blackvotersmatter/c/all-roads-lead-to-the-south/event/create/?event_creation_source=discovery_page_no_commit"
-              target="_blank"
-              rel="noopener"
-            >
-              Open Mobilize creator
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <path
-                  d="M2 6h8M6 2l4 4-4 4"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="square"
-                />
-              </svg>
-            </a>
-            <button type="button" class="detail-secondary" id="brief-back">
+            <button type="button" class="detail-cta" id="result-back">
               Back to edit
             </button>
+            <button type="button" class="detail-secondary" id="result-close">
+              Close
+            </button>
           </div>
-
-          <p class="create-fineprint">
-            Tip: in Mobilize, paste the &ldquo;Description&rdquo; section into
-            the description field, and copy the time, location, and host info
-            into the matching fields above it.
-          </p>
         </div>
       </article>
     </div>
@@ -513,6 +489,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=6" defer></script>
+    <script src="./app.js?v=7" defer></script>
   </body>
 </html>

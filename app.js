@@ -9,6 +9,27 @@ const ORG_ID = 5766;
 const TAG_ID = 31662;
 const PER_PAGE = 100;
 
+/* Mobilize event-creation API.
+   ----------------------------
+   This site is a public demo with no backend, so we ship with no API key.
+   When MOBILIZE_API_KEY is empty the create-event form runs in 'demo
+   mode' — it builds the exact payload that would be POSTed to Mobilize
+   and shows it to the user instead of sending it. To go live, either:
+
+     1. Drop an organization-level API key (events:write scope) into
+        MOBILIZE_API_KEY below — only safe for private deployments since
+        anything in this file is publicly viewable.
+
+   …or, the production-shaped option:
+
+     2. Stand up a tiny serverless proxy (Cloudflare Worker, Netlify
+        Function, etc.) that holds the key server-side and exposes a
+        /create-event endpoint, then point CREATE_EVENT_ENDPOINT at it
+        and leave MOBILIZE_API_KEY blank — the proxy adds the auth
+        header. */
+const MOBILIZE_API_KEY = '';
+const CREATE_EVENT_ENDPOINT = `https://api.mobilize.us/v1/organizations/${ORG_ID}/events`;
+
 const SOUTH_CENTER = [33.5, -88.5];
 const INITIAL_ZOOM = 5;
 
@@ -44,14 +65,20 @@ const els = {
   createForm: document.getElementById('create-form'),
   createError: document.getElementById('create-error'),
   createVirtual: document.getElementById('create-virtual'),
+  createSubmit: document.getElementById('create-submit'),
+  createSubmitLabel: document.getElementById('create-submit-label'),
   createStepForm: document.getElementById('create-step-form'),
   createStepSuccess: document.getElementById('create-step-success'),
-  briefOutput: document.getElementById('brief-output'),
-  briefCopy: document.getElementById('brief-copy'),
-  briefCopyLabel: document.getElementById('brief-copy-label'),
-  briefOpen: document.getElementById('brief-open'),
-  briefBack: document.getElementById('brief-back'),
-  copyStatus: document.getElementById('copy-status'),
+  resultEyebrow: document.getElementById('result-eyebrow'),
+  resultTitle: document.getElementById('result-title'),
+  resultLede: document.getElementById('result-lede'),
+  resultMeta: document.getElementById('result-meta'),
+  resultEndpoint: document.getElementById('result-endpoint'),
+  resultStatus: document.getElementById('result-status'),
+  resultPayloadLabel: document.getElementById('result-payload-label'),
+  resultOutput: document.getElementById('result-output'),
+  resultBack: document.getElementById('result-back'),
+  resultClose: document.getElementById('result-close'),
 };
 
 /* ══════════════════════════════════════════════════════════════════
@@ -86,17 +113,10 @@ els.createOverlay.addEventListener('click', (e) => {
 els.createVirtual.addEventListener('change', syncVirtualState);
 els.createForm.addEventListener('submit', handleCreateSubmit);
 els.createForm.addEventListener('input', persistDraftSoon);
-els.briefCopy.addEventListener('click', handleBriefCopy);
-els.briefBack.addEventListener('click', showFormStep);
-els.briefOutput.addEventListener('focus', () => els.briefOutput.select());
-els.briefOutput.addEventListener('click', () => els.briefOutput.select());
-els.briefOpen.addEventListener('click', () => {
-  // Re-attempt the copy right before the user switches tabs so the
-  // brief is freshly on their clipboard when they reach Mobilize. This
-  // is a real user gesture so it's the most reliable moment.
-  const brief = els.briefOutput.value;
-  if (brief) copyBrief(brief).catch(() => {});
-});
+els.resultBack.addEventListener('click', showFormStep);
+els.resultClose.addEventListener('click', closeCreate);
+els.resultOutput.addEventListener('focus', () => els.resultOutput.select());
+els.resultOutput.addEventListener('click', () => els.resultOutput.select());
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
@@ -105,6 +125,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 restoreDraft();
+els.createSubmitLabel.textContent = MOBILIZE_API_KEY
+  ? 'Submit to Mobilize'
+  : 'Preview API call';
 
 renderSkeletons();
 loadEvents().catch(handleLoadError);
@@ -403,9 +426,9 @@ function closeDetail() {
 /* ══════════════════════════════════════════════════════════════════
    CREATE-EVENT FORM
    In-page form modeled on the public Mobilize event-creation form.
-   We don't have a creation API key, so on submit we package the
-   inputs into a formatted brief, copy it to the clipboard, and open
-   Mobilize in a new tab so the host can paste-and-publish.
+   On submit we build the Mobilize-shaped JSON payload and either
+   POST it to /v1/organizations/{org}/events (when MOBILIZE_API_KEY
+   is set) or render it as a stubbed payload preview (demo mode).
    ══════════════════════════════════════════════════════════════════ */
 function openCreate() {
   els.createOverlay.hidden = false;
@@ -433,14 +456,12 @@ function closeCreate() {
 function showFormStep() {
   els.createStepForm.hidden = false;
   els.createStepSuccess.hidden = true;
-  resetCopyStatus();
 }
 
-function showSuccessStep() {
+function showResultStep() {
   els.createStepForm.hidden = true;
   els.createStepSuccess.hidden = false;
-  // Scroll the side-sheet back to the top so the user sees the brief.
-  // scrollTo isn't always present (older browsers, embedded webviews).
+  // Scroll the side-sheet back to the top so the user sees the result.
   if (typeof els.createPanel.scrollTo === 'function') {
     els.createPanel.scrollTo({ top: 0, behavior: 'auto' });
   } else {
@@ -475,118 +496,199 @@ function handleCreateSubmit(e) {
     return;
   }
 
-  const brief = formatBrief(data);
-  els.briefOutput.value = brief;
+  const payload = buildMobilizePayload(data);
 
-  // Try to copy to the clipboard while we still have the user gesture
-  // from the form submit. Whether this succeeds or not we hand off to
-  // the success step, where the user has explicit Copy and Open
-  // Mobilize buttons that don't depend on this initial attempt.
-  showSuccessStep();
+  // Demo mode: no API key, just show the payload. Keeps this file safe
+  // to ship publicly while still exercising the full validation +
+  // payload-building code path that the live submit will use.
+  if (!MOBILIZE_API_KEY) {
+    renderResult({
+      kind: 'demo',
+      eyebrow: 'Demo mode',
+      title: 'Stubbed submission',
+      lede:
+        'No MOBILIZE_API_KEY configured. Below is the JSON payload this form would POST to ' +
+        `${CREATE_EVENT_ENDPOINT} with an "Authorization: Bearer <key>" header.`,
+      endpoint: `POST ${CREATE_EVENT_ENDPOINT}`,
+      status: 'Not sent (demo)',
+      payloadLabel: 'Request payload (stub)',
+      body: JSON.stringify(payload, null, 2),
+    });
+    return;
+  }
 
-  copyBrief(brief)
-    .then(() => setCopyStatus('ok', 'Copied to your clipboard — paste into Mobilize'))
-    .catch(() =>
-      setCopyStatus(
-        'warn',
-        'Couldn\u2019t auto-copy in this browser. Click "Copy brief" below.',
-      ),
-    );
+  // Live mode: POST to Mobilize. Disable the submit button so it can't
+  // be clicked twice while the request is in flight.
+  els.createSubmit.disabled = true;
+  const prevLabel = els.createSubmitLabel.textContent;
+  els.createSubmitLabel.textContent = 'Submitting…';
 
-  // Pre-select the brief textarea so a single Cmd/Ctrl+C also works.
-  requestAnimationFrame(() => {
-    els.briefOutput.focus({ preventScroll: false });
-    els.briefOutput.select();
-  });
-}
-
-function handleBriefCopy() {
-  const brief = els.briefOutput.value;
-  if (!brief) return;
-
-  copyBrief(brief)
-    .then(() => {
-      setCopyStatus('ok', 'Copied to your clipboard — paste into Mobilize');
-      flashCopyButton('Copied!');
+  submitToMobilize(payload)
+    .then((result) => {
+      renderResult({
+        kind: 'success',
+        eyebrow: 'Submitted',
+        title: 'Event sent to Mobilize',
+        lede:
+          'Mobilize accepted the submission. The event will appear on the map ' +
+          'after their team approves it.',
+        endpoint: `POST ${CREATE_EVENT_ENDPOINT}`,
+        status: `${result.status} ${result.statusText}`.trim(),
+        payloadLabel: 'API response',
+        body: result.bodyText,
+      });
+      // Clear the saved draft on a successful submit.
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
     })
-    .catch(() => {
-      // Last resort: select the textarea and tell the user to press Cmd/Ctrl+C.
-      els.briefOutput.focus();
-      els.briefOutput.select();
-      setCopyStatus(
-        'warn',
-        'Your browser blocked the auto-copy. Press \u2318/Ctrl+C to copy the selected text.',
-      );
+    .catch((err) => {
+      renderResult({
+        kind: 'error',
+        eyebrow: 'Submission failed',
+        title: 'Couldn\u2019t reach Mobilize',
+        lede:
+          'The request to /v1/events did not succeed. The full response is ' +
+          'below — your draft is still saved so you can edit and retry.',
+        endpoint: `POST ${CREATE_EVENT_ENDPOINT}`,
+        status: err.status ? `${err.status} ${err.statusText || ''}`.trim() : 'Network error',
+        payloadLabel: 'Error detail',
+        body: err.bodyText || String(err.message || err),
+      });
+    })
+    .finally(() => {
+      els.createSubmit.disabled = false;
+      els.createSubmitLabel.textContent = prevLabel;
     });
 }
 
-/* Copy a string to the clipboard. Tries the legacy execCommand path
-   first because it's synchronous and doesn't require document focus,
-   then falls back to the async Clipboard API for browsers that have
-   removed execCommand. Both paths return a Promise so callers can
-   wire UI feedback the same way. */
-function copyBrief(text) {
-  return new Promise((resolve, reject) => {
-    if (legacyCopy(text)) {
-      resolve();
-      return;
-    }
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(resolve, reject);
-      return;
-    }
-    reject(new Error('No clipboard mechanism available'));
-  });
-}
-
-function legacyCopy(text) {
+/* POST the payload to Mobilize. Resolves with { status, statusText, bodyText }
+   on 2xx and rejects with the same shape (plus a .message) on non-2xx or
+   network failure, so the result UI can render the actual server response. */
+async function submitToMobilize(payload) {
+  let res;
   try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    // Position off-screen but still focusable. iOS needs a non-zero size.
-    ta.style.position = 'fixed';
-    ta.style.top = '0';
-    ta.style.left = '0';
-    ta.style.width = '1px';
-    ta.style.height = '1px';
-    ta.style.opacity = '0';
-    ta.style.pointerEvents = 'none';
-    document.body.appendChild(ta);
-
-    const prevSelected = document.activeElement;
-    ta.focus();
-    ta.select();
-    ta.setSelectionRange(0, text.length);
-    const ok = document.execCommand && document.execCommand('copy');
-    document.body.removeChild(ta);
-    if (prevSelected && typeof prevSelected.focus === 'function') {
-      prevSelected.focus();
-    }
-    return !!ok;
-  } catch {
-    return false;
+    res = await fetch(CREATE_EVENT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${MOBILIZE_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (networkErr) {
+    const e = new Error(networkErr.message || 'Network error');
+    e.bodyText = String(networkErr.message || networkErr);
+    throw e;
   }
+
+  const bodyText = await res.text();
+  // Pretty-print JSON responses; leave HTML/plain text alone.
+  let pretty = bodyText;
+  try { pretty = JSON.stringify(JSON.parse(bodyText), null, 2); } catch { /* not json */ }
+
+  if (!res.ok) {
+    const e = new Error(`Mobilize API ${res.status}`);
+    e.status = res.status;
+    e.statusText = res.statusText;
+    e.bodyText = pretty;
+    throw e;
+  }
+  return { status: res.status, statusText: res.statusText, bodyText: pretty };
 }
 
-function setCopyStatus(kind, message) {
-  els.copyStatus.textContent = message;
-  els.copyStatus.dataset.kind = kind;
+/* Translate the form's flat input shape into Mobilize's event creation
+   schema. Keep this function pure so it's easy to unit-test and so the
+   demo-mode preview matches what a real submission would send. */
+function buildMobilizePayload(d) {
+  const startTs = parseLocalUnix(d.date, d.startTime, d.timezone);
+  const endTs = parseLocalUnix(d.date, d.endTime, d.timezone);
+
+  const payload = {
+    title: d.title,
+    description: d.description,
+    event_type: d.eventType,
+    is_virtual: !!d.isVirtual,
+    timeslots: [{ start_date: startTs, end_date: endTs }],
+    tag_ids: [TAG_ID],
+    contact: {
+      name: d.hostName,
+      email_address: d.hostEmail,
+    },
+  };
+
+  if (d.image) payload.featured_image_url = d.image;
+  if (d.hostPhone) payload.contact.phone_number = d.hostPhone;
+  if (d.hostOrg) payload.contact.owner_user_organization = d.hostOrg;
+
+  if (!d.isVirtual) {
+    payload.location = {
+      venue: d.venue || '',
+      address_lines: d.address ? [d.address] : [],
+      locality: d.city,
+      region: d.region,
+      postal_code: d.postal || '',
+    };
+  }
+
+  if (d.accessibility) payload.accessibility_status = d.accessibility;
+  if (d.accessibilityNotes) payload.accessibility_notes = d.accessibilityNotes;
+
+  return payload;
 }
 
-function resetCopyStatus() {
-  els.copyStatus.textContent = '';
-  delete els.copyStatus.dataset.kind;
-  els.briefCopyLabel.textContent = 'Copy brief';
+/* Convert a (date, time, IANA tz) tuple into a unix timestamp.
+   Strategy:
+     1. Pretend the local components are UTC -> utcGuess.
+     2. Render utcGuess in the target zone and re-pack those components
+        as UTC -> renderedUtc.
+     3. The difference (utcGuess - renderedUtc) is exactly the zone's
+        offset at that moment; nudge ts by it.
+     4. Iterate once more to absorb any DST step that crossed the nudge. */
+function parseLocalUnix(date, time, tz) {
+  if (!date || !time) return null;
+  const [y, m, d] = date.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  const utcGuess = Date.UTC(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0);
+  if (!tz) return Math.floor(utcGuess / 1000);
+
+  let ts = utcGuess;
+  for (let i = 0; i < 2; i++) {
+    const renderedUtc = asUtcEquivalent(ts, tz);
+    const delta = utcGuess - renderedUtc;
+    if (delta === 0) break;
+    ts += delta;
+  }
+  return Math.floor(ts / 1000);
 }
 
-let copyFlashTimer = null;
-function flashCopyButton(label) {
-  els.briefCopyLabel.textContent = label;
-  if (copyFlashTimer) clearTimeout(copyFlashTimer);
-  copyFlashTimer = setTimeout(() => {
-    els.briefCopyLabel.textContent = 'Copy brief';
-  }, 1800);
+function asUtcEquivalent(ts, tz) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(ts));
+  const get = (type) => Number(parts.find((p) => p.type === type)?.value || 0);
+  // Intl returns hour 24 at midnight in some locales; normalize to 0.
+  const hour = get('hour') === 24 ? 0 : get('hour');
+  return Date.UTC(get('year'), get('month') - 1, get('day'), hour, get('minute'), get('second'));
+}
+
+function renderResult({ kind, eyebrow, title, lede, endpoint, status, payloadLabel, body }) {
+  els.resultEyebrow.textContent = eyebrow;
+  els.resultTitle.textContent = title;
+  els.resultLede.textContent = lede;
+  els.resultEndpoint.innerHTML = `<code>${escapeHtml(endpoint)}</code>`;
+  els.resultStatus.textContent = status;
+  els.resultMeta.hidden = false;
+  els.resultPayloadLabel.textContent = payloadLabel;
+  els.resultOutput.value = body;
+  els.resultOutput.dataset.kind = kind;
+  showResultStep();
 }
 
 function readForm() {
@@ -621,45 +723,6 @@ function validateCreate(d) {
     errs.push({ field: 'endTime', message: 'End time must be after start time.' });
   }
   return errs;
-}
-
-function formatBrief(d) {
-  const lines = [];
-  lines.push(`EVENT: ${d.title}`);
-  lines.push(`TYPE: ${humanType(d.eventType, d.isVirtual) || d.eventType}`);
-  lines.push('');
-  lines.push(`WHEN: ${formatBriefWhen(d)}`);
-  if (d.isVirtual) {
-    lines.push('WHERE: Virtual');
-  } else {
-    const where = [d.venue, d.address, [d.city, d.region].filter(Boolean).join(', '), d.postal]
-      .filter(Boolean)
-      .join(' · ');
-    lines.push(`WHERE: ${where || 'TBA'}`);
-  }
-  if (d.accessibility || d.accessibilityNotes) {
-    const a = humanAccess(d.accessibility, d.accessibilityNotes);
-    if (a) lines.push(`ACCESS: ${a}`);
-  }
-  if (d.image) lines.push(`IMAGE: ${d.image}`);
-  lines.push('');
-  lines.push('DESCRIPTION:');
-  lines.push(d.description);
-  lines.push('');
-  lines.push('HOST:');
-  lines.push(`  Name:  ${d.hostName}`);
-  lines.push(`  Email: ${d.hostEmail}`);
-  if (d.hostPhone) lines.push(`  Phone: ${d.hostPhone}`);
-  if (d.hostOrg) lines.push(`  Org:   ${d.hostOrg}`);
-  lines.push('');
-  lines.push('TAG: All Roads Lead to the South');
-  return lines.join('\n');
-}
-
-function formatBriefWhen(d) {
-  if (!d.date || !d.startTime) return 'TBA';
-  const tz = d.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return `${d.date} · ${d.startTime}–${d.endTime || ''} ${tz}`.trim();
 }
 
 function showCreateError(err) {
