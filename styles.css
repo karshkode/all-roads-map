@@ -952,6 +952,229 @@ img {
 }
 
 /* ══════════════════════════════
+   CREATE-EVENT FORM
+   Side-sheet modeled on the Mobilize event-creation form. Reuses the
+   detail-overlay primitives but adds form-specific layout.
+   ══════════════════════════════ */
+.create-overlay {
+  /* Inherits z-index, blur, slide-in from .detail-overlay. */
+}
+
+.create-panel {
+  width: min(720px, 100%);
+  background: var(--bone);
+  color: var(--ink);
+}
+
+.create-content {
+  padding: 28px clamp(24px, 4vw, 44px) 40px;
+}
+
+.create-lede {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-70);
+  margin-bottom: 24px;
+  max-width: 56ch;
+}
+
+#create-title {
+  font-family: var(--f-display);
+  font-size: clamp(28px, 3.6vw, 40px);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.create-fieldset {
+  border: 1px solid var(--ink-15);
+  border-radius: 2px;
+  padding: 14px clamp(14px, 2vw, 22px) 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+.create-fieldset legend {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--red);
+  padding: 0 8px;
+  margin-left: -4px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-45);
+}
+.field-label em {
+  color: var(--red);
+  font-style: normal;
+  margin-left: 2px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  font: inherit;
+  font-family: var(--f-display);
+  font-size: 14px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--ink-15);
+  border-radius: 2px;
+  padding: 10px 12px;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 110px;
+  line-height: 1.5;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(200, 56, 40, 0.18);
+}
+/* Tag invalid fields once the form has been submitted at least once
+   so users don't see angry red borders before they've even typed. */
+.create-form.was-submitted .field input:invalid,
+.create-form.was-submitted .field select:invalid,
+.create-form.was-submitted .field textarea:invalid {
+  border-color: var(--red);
+}
+
+.field-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink-70);
+}
+.field-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--red);
+  flex-shrink: 0;
+}
+
+/* When the event is virtual, fade out the physical-location fields. */
+.create-form.is-virtual [data-physical] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.create-form.is-virtual [data-physical] input,
+.create-form.is-virtual [data-physical] select {
+  background: rgba(26, 23, 20, 0.04);
+}
+
+.create-error {
+  background: rgba(200, 56, 40, 0.08);
+  border: 1px solid rgba(200, 56, 40, 0.4);
+  color: var(--red-deep);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 14px;
+  border-radius: 2px;
+}
+
+.create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+}
+.create-actions .detail-secondary {
+  margin-left: 0;
+}
+
+.create-fineprint {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-45);
+  line-height: 1.7;
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .create-content {
+    padding: 24px 20px 32px;
+  }
+  .create-fieldset {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .create-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .create-actions .detail-cta,
+  .create-actions .detail-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ══════════════════════════════
+   TOAST
+   ══════════════════════════════ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 2500;
+  background: var(--ink);
+  color: var(--bone);
+  border: 1px solid var(--bone-20);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px 18px;
+  border-radius: 2px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease), transform 0.25s var(--ease);
+  max-width: calc(100% - 32px);
+  text-align: center;
+}
+.toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ══════════════════════════════
    FOOTER
    ══════════════════════════════ */
 .site-foot {

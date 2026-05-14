@@ -24,7 +24,7 @@
       crossorigin=""
     />
 
-    <link rel="stylesheet" href="./styles.css?v=3" />
+    <link rel="stylesheet" href="./styles.css?v=4" />
   </head>
   <body>
     <header class="site-nav">
@@ -57,7 +57,7 @@
           in Montgomery — it ends wherever you stand up.
         </p>
         <div class="hero-ctas">
-          <a id="host-cta" class="hero-cta" href="#" target="_blank" rel="noopener">
+          <button id="host-cta" class="hero-cta" type="button">
             Host an event
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
               <path
@@ -68,7 +68,7 @@
                 stroke-linecap="square"
               />
             </svg>
-          </a>
+          </button>
           <button id="edit-toggle" class="hero-cta-outline" type="button" aria-pressed="false">
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
               <path
@@ -145,6 +145,306 @@
       </article>
     </div>
 
+    <!-- Create-event modal — modeled on the public Mobilize event-creation
+         form (https://www.mobilize.us/blackvotersmatter/c/all-roads-lead-to-
+         the-south/event/create/). Submission packages the inputs into a
+         formatted brief, copies it to the clipboard, and hands the user
+         off to Mobilize to finish posting the event. -->
+    <div
+      class="detail-overlay create-overlay"
+      id="create-overlay"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-title"
+    >
+      <article class="detail create-panel" id="create-panel" tabindex="-1">
+        <button class="detail-close" id="create-close" type="button" aria-label="Close create event form">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+            <path
+              d="M2 2l10 10M12 2L2 12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="square"
+            />
+          </svg>
+        </button>
+
+        <div class="create-content">
+          <p class="detail-eyebrow">Host an event</p>
+          <h2 id="create-title">Plan your rally</h2>
+          <p class="create-lede">
+            Fill in the basics here, then we&rsquo;ll copy your event brief to
+            your clipboard and open Mobilize so you can paste it in and publish.
+            Every field below mirrors what Mobilize will ask for.
+          </p>
+
+          <form class="create-form" id="create-form" novalidate>
+            <fieldset class="create-fieldset">
+              <legend>Event basics</legend>
+
+              <label class="field field-full">
+                <span class="field-label">Event name <em>*</em></span>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  maxlength="120"
+                  placeholder="All Roads Lead to the South Rally — Atlanta"
+                  autocomplete="off"
+                />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Event type <em>*</em></span>
+                <select name="eventType" required>
+                  <option value="">Choose a type…</option>
+                  <option value="RALLY">Rally / March</option>
+                  <option value="MEETING">Community meeting</option>
+                  <option value="TRAINING">Training</option>
+                  <option value="CANVASS">Canvass</option>
+                  <option value="PHONE_BANK">Phone bank</option>
+                  <option value="TEXT_BANK">Text bank</option>
+                  <option value="VOLUNTEER">Volunteer / GOTV</option>
+                  <option value="HOUSE_PARTY">House party</option>
+                  <option value="FUNDRAISER">Fundraiser</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Featured image URL</span>
+                <input
+                  type="url"
+                  name="image"
+                  placeholder="https://…"
+                  autocomplete="off"
+                />
+              </label>
+
+              <label class="field field-full">
+                <span class="field-label">Description <em>*</em></span>
+                <textarea
+                  name="description"
+                  rows="5"
+                  required
+                  maxlength="4000"
+                  placeholder="Tell people what to expect, what to bring, and why this rally matters."
+                ></textarea>
+              </label>
+            </fieldset>
+
+            <fieldset class="create-fieldset">
+              <legend>When</legend>
+
+              <label class="field">
+                <span class="field-label">Date <em>*</em></span>
+                <input type="date" name="date" required value="2026-05-16" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Time zone</span>
+                <select name="timezone">
+                  <option value="America/New_York" selected>Eastern (ET)</option>
+                  <option value="America/Chicago">Central (CT)</option>
+                  <option value="America/Denver">Mountain (MT)</option>
+                  <option value="America/Phoenix">Arizona (MST)</option>
+                  <option value="America/Los_Angeles">Pacific (PT)</option>
+                  <option value="America/Anchorage">Alaska (AKT)</option>
+                  <option value="Pacific/Honolulu">Hawaii (HST)</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Start time <em>*</em></span>
+                <input type="time" name="startTime" required value="12:00" />
+              </label>
+
+              <label class="field">
+                <span class="field-label">End time <em>*</em></span>
+                <input type="time" name="endTime" required value="14:00" />
+              </label>
+            </fieldset>
+
+            <fieldset class="create-fieldset">
+              <legend>Where</legend>
+
+              <label class="field field-checkbox field-full">
+                <input type="checkbox" name="isVirtual" id="create-virtual" />
+                <span>This is a virtual event (no physical location)</span>
+              </label>
+
+              <label class="field field-full" data-physical>
+                <span class="field-label">Venue</span>
+                <input
+                  type="text"
+                  name="venue"
+                  placeholder="Riverfront Park, City Hall steps, etc."
+                  autocomplete="off"
+                />
+              </label>
+
+              <label class="field field-full" data-physical>
+                <span class="field-label">Street address</span>
+                <input
+                  type="text"
+                  name="address"
+                  placeholder="123 Dexter Ave"
+                  autocomplete="street-address"
+                />
+              </label>
+
+              <label class="field" data-physical>
+                <span class="field-label">City <em>*</em></span>
+                <input
+                  type="text"
+                  name="city"
+                  required
+                  placeholder="Atlanta"
+                  autocomplete="address-level2"
+                />
+              </label>
+
+              <label class="field" data-physical>
+                <span class="field-label">State <em>*</em></span>
+                <select name="region" required autocomplete="address-level1">
+                  <option value="">Choose…</option>
+                  <option>AL</option><option>AK</option><option>AZ</option>
+                  <option>AR</option><option>CA</option><option>CO</option>
+                  <option>CT</option><option>DE</option><option>DC</option>
+                  <option>FL</option><option>GA</option><option>HI</option>
+                  <option>ID</option><option>IL</option><option>IN</option>
+                  <option>IA</option><option>KS</option><option>KY</option>
+                  <option>LA</option><option>ME</option><option>MD</option>
+                  <option>MA</option><option>MI</option><option>MN</option>
+                  <option>MS</option><option>MO</option><option>MT</option>
+                  <option>NE</option><option>NV</option><option>NH</option>
+                  <option>NJ</option><option>NM</option><option>NY</option>
+                  <option>NC</option><option>ND</option><option>OH</option>
+                  <option>OK</option><option>OR</option><option>PA</option>
+                  <option>RI</option><option>SC</option><option>SD</option>
+                  <option>TN</option><option>TX</option><option>UT</option>
+                  <option>VT</option><option>VA</option><option>WA</option>
+                  <option>WV</option><option>WI</option><option>WY</option>
+                </select>
+              </label>
+
+              <label class="field" data-physical>
+                <span class="field-label">ZIP</span>
+                <input
+                  type="text"
+                  name="postal"
+                  inputmode="numeric"
+                  pattern="[0-9]{5}(-[0-9]{4})?"
+                  maxlength="10"
+                  placeholder="30303"
+                  autocomplete="postal-code"
+                />
+              </label>
+            </fieldset>
+
+            <fieldset class="create-fieldset">
+              <legend>Accessibility</legend>
+
+              <label class="field">
+                <span class="field-label">Accessibility</span>
+                <select name="accessibility">
+                  <option value="">Not specified</option>
+                  <option value="ACCESSIBLE">Accessible</option>
+                  <option value="NOT_ACCESSIBLE">Not fully accessible</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Accessibility notes</span>
+                <input
+                  type="text"
+                  name="accessibilityNotes"
+                  placeholder="Wheelchair ramp at south entrance, ASL interpreters, etc."
+                  autocomplete="off"
+                />
+              </label>
+            </fieldset>
+
+            <fieldset class="create-fieldset">
+              <legend>Host info</legend>
+
+              <label class="field">
+                <span class="field-label">Host name <em>*</em></span>
+                <input
+                  type="text"
+                  name="hostName"
+                  required
+                  placeholder="Your full name"
+                  autocomplete="name"
+                />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Host email <em>*</em></span>
+                <input
+                  type="email"
+                  name="hostEmail"
+                  required
+                  placeholder="you@example.com"
+                  autocomplete="email"
+                />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Host phone</span>
+                <input
+                  type="tel"
+                  name="hostPhone"
+                  placeholder="(555) 555-5555"
+                  autocomplete="tel"
+                />
+              </label>
+
+              <label class="field">
+                <span class="field-label">Organization</span>
+                <input
+                  type="text"
+                  name="hostOrg"
+                  placeholder="Optional"
+                  autocomplete="organization"
+                />
+              </label>
+            </fieldset>
+
+            <p class="create-error" id="create-error" role="alert" hidden></p>
+
+            <div class="create-actions">
+              <button type="submit" class="detail-cta" id="create-submit">
+                Copy brief &amp; open Mobilize
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <path
+                    d="M2 6h8M6 2l4 4-4 4"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="square"
+                  />
+                </svg>
+              </button>
+              <button type="button" class="detail-secondary" id="create-cancel">
+                Cancel
+              </button>
+            </div>
+
+            <p class="create-fineprint">
+              Mobilize is the official platform for All Roads Lead to the South
+              events. Your event becomes public after the team approves it on
+              Mobilize. We auto-save your draft locally on this device only — nothing is sent anywhere until you publish on Mobilize.
+            </p>
+          </form>
+        </div>
+      </article>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
     <footer class="site-foot">
       <p>
         Event data &middot;
@@ -162,6 +462,6 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="./app.js?v=3" defer></script>
+    <script src="./app.js?v=4" defer></script>
   </body>
 </html>
