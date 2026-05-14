@@ -113,7 +113,7 @@ img {
    HERO
    ══════════════════════════════ */
 .hero {
-  min-height: 86vh;
+  min-height: 82vh;
   background: var(--ink);
   position: relative;
   overflow: hidden;
@@ -123,15 +123,29 @@ img {
   padding: 0 clamp(24px, 5vw, 72px) clamp(56px, 8vw, 100px);
 }
 
-.hero::after {
-  content: '';
+/* Hero photo — same protest-archive image used on the live site */
+.hero-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background:
-    radial-gradient(60% 50% at 20% 20%, rgba(200, 56, 40, 0.18), transparent 60%),
-    radial-gradient(40% 40% at 80% 0%, rgba(200, 56, 40, 0.1), transparent 60%),
-    linear-gradient(180deg, #16110e 0%, var(--ink) 100%);
+  background-image: url('https://pluralpolicy.com/wp-content/uploads/2024/05/unseen-histories-9RbdjQ3nCEk-unsplash-scaled.jpg');
+  background-size: cover;
+  background-position: center 30%;
+  filter: brightness(0.45);
+}
+/* Dark gradient over photo — heavier at bottom so text pops */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    to bottom,
+    rgba(26, 23, 20, 0.2) 0%,
+    rgba(26, 23, 20, 0.1) 30%,
+    rgba(26, 23, 20, 0.7) 70%,
+    rgba(26, 23, 20, 0.96) 100%
+  );
 }
 
 .hero-stripe {
@@ -307,8 +321,21 @@ img {
 
 @media (max-width: 640px) {
   .hero {
-    min-height: 92svh;
+    min-height: 88svh;
     padding-bottom: 56px;
+  }
+  .hero-bg {
+    background-position: 60% top;
+    filter: brightness(0.5);
+  }
+  .hero::before {
+    background: linear-gradient(
+      to bottom,
+      rgba(26, 23, 20, 0.1) 0%,
+      rgba(26, 23, 20, 0.05) 20%,
+      rgba(26, 23, 20, 0.75) 60%,
+      rgba(26, 23, 20, 0.98) 100%
+    );
   }
   .hero-year {
     display: none;
@@ -704,6 +731,11 @@ img {
   align-items: stretch;
   justify-content: flex-end;
   animation: overlayIn 0.24s var(--ease);
+}
+/* Restore the [hidden] attribute — class display:flex would otherwise
+   beat the user-agent rule and the modal would render on page load. */
+[hidden] {
+  display: none !important;
 }
 @keyframes overlayIn {
   from {
